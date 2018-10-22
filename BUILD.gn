@@ -10,6 +10,7 @@ import("//build/config/jumbo.gni")
 import("//build/config/mips.gni")
 import("//build/config/sanitizers/sanitizers.gni")
 import("//build_overrides/build.gni")
+import("//neva/neva.gni")
 
 if (is_android) {
   import("//build/config/android/rules.gni")
@@ -3076,6 +3077,9 @@ if (v8_use_snapshot && current_toolchain == v8_snapshot_toolchain) {
       "//build/config:exe_and_shlib_deps",
       "//build/win:default_exe_manifest",
     ]
+    if (use_lttng && current_toolchain == default_toolchain) {
+      deps += [ "//base/trace_event/neva:lttng", ]
+    }
   }
 }
 
