@@ -153,6 +153,10 @@ Heap::Heap()
       // Will be 4 * reserved_semispace_size_ to ensure that young
       // generation can be aligned to its size.
       maximum_committed_(0),
+      min_allocation_limit_growing_step_size_(0),
+      high_fragmentation_slack_(0),
+      external_allocation_hard_limit_(0),
+      external_allocation_soft_limit_(0),
       survived_since_last_expansion_(0),
       survived_last_scavenge_(0),
       always_allocate_scope_count_(0),
@@ -216,6 +220,7 @@ Heap::Heap()
       ring_buffer_full_(false),
       ring_buffer_end_(0),
       configured_(false),
+      configured_details_(false),
       current_gc_flags_(Heap::kNoGCFlags),
       current_gc_callback_flags_(GCCallbackFlags::kNoGCCallbackFlags),
       external_string_table_(this),
@@ -1787,7 +1792,7 @@ bool Heap::PerformGarbageCollection(
   if (collector == MARK_COMPACTOR) {
     // Register the amount of external allocated memory.
     external_memory_at_last_mark_compact_ = external_memory_;
-    external_memory_limit_ = external_memory_ + kExternalAllocationSoftLimit;
+    external_memory_limit_ = external_memory_ + external_memory_soft_limit();
     SetOldGenerationAllocationLimit(old_gen_size, gc_speed, mutator_speed);
     CheckIneffectiveMarkCompact(
         old_gen_size, tracer()->AverageMarkCompactMutatorUtilization());
@@ -3036,6 +3041,10 @@ bool Heap::HasHighFragmentation(size_t used, size_t committed) {
   // Fragmentation is high if committed > 2 * used + kSlack.
   // Rewrite the exression to avoid overflow.
   DCHECK_GE(committed, used);
+  if (FLAG_configure_heap_details) {
+    return committed - used > used + high_fragmentation_slack_;
+  }
+
   return committed - used > used + kSlack;
 }
 
@@ -4132,6 +4141,53 @@ bool Heap::ConfigureHeap(size_t max_semi_space_size_in_kb,
   return true;
 }
 
+void Heap::ConfigureHeapDetails(size_t min_allocation_limit_growing_step_size,
+                                size_t high_fragmentation_slack,
+                                int external_allocation_hard_limit,
+                                int external_allocation_soft_limit) {
+  if (configured_details_) return;
+
+  if (FLAG_configure_heap_details) {
+    // Configure detailed constraints by flags
+    if (FLAG_minimum_allocation_limit_growing_step_size) {
+      min_allocation_limit_growing_step_size_ =
+          FLAG_minimum_allocation_limit_growing_step_size;
+    }
+    if (FLAG_high_fragmentation_slack) {
+      high_fragmentation_slack_ = FLAG_high_fragmentation_slack;
+    }
+    if (FLAG_external_allocation_hard_limit) {
+      external_allocation_hard_limit_ = FLAG_external_allocation_hard_limit;
+    }
+    if (FLAG_external_allocation_soft_limit) {
+      external_allocation_soft_limit_ = FLAG_external_allocation_soft_limit;
+    }
+  }
+
+  // Configure detailed constraints by each app
+  if (min_allocation_limit_growing_step_size)
+    min_allocation_limit_growing_step_size_ =
+        min_allocation_limit_growing_step_size;
+  if (high_fragmentation_slack)
+    high_fragmentation_slack_ = high_fragmentation_slack;
+  if (external_allocation_hard_limit)
+    external_allocation_hard_limit_ = external_allocation_hard_limit;
+  if (external_allocation_soft_limit)
+    external_allocation_soft_limit_ = external_allocation_soft_limit;
+
+  if (FLAG_trace_configure_heap_details) {
+    PrintIsolate(isolate_,
+                 "MinAllocationLimitGrowingStepSize: %" PRIuS
+                 ", high_fragmentation_slack_: %" PRIuS
+                 ", external_allocation_hard_limit_: %d"
+                 ", external_allocation_soft_limit_: %d\n",
+                 min_allocation_limit_growing_step_size_,
+                 high_fragmentation_slack_, external_allocation_hard_limit_,
+                 external_allocation_soft_limit_);
+  }
+
+  configured_details_ = true;
+}
 
 void Heap::AddToRingBuffer(const char* string) {
   size_t first_part =
@@ -4328,6 +4384,14 @@ size_t Heap::MinimumAllocationLimitGrowingStep() {
   const size_t kRegularAllocationLimitGrowingStep = 8;
   const size_t kLowMemoryAllocationLimitGrowingStep = 2;
   size_t limit = (Page::kPageSize > MB ? Page::kPageSize : MB);
+  if (FLAG_configure_heap_details) {
+    if (FLAG_trace_configure_heap_details) {
+      PrintIsolate(isolate_, "MinimumAllocationLimitGrowingStep: %" PRIuS "\n",
+                   limit * min_allocation_limit_growing_step_size_);
+    }
+    return limit * min_allocation_limit_growing_step_size_;
+  }
+
   return limit * (ShouldOptimizeForMemoryUsage()
                       ? kLowMemoryAllocationLimitGrowingStep
                       : kRegularAllocationLimitGrowingStep);

@@ -6300,6 +6300,11 @@ class V8_EXPORT ResourceConstraints {
   void ConfigureDefaults(uint64_t physical_memory,
                          uint64_t virtual_memory_limit);
 
+  void ConfigureDetails(size_t min_allocation_limit_growing_step_size,
+                        size_t high_fragmentation_slack,
+                        int external_allocation_hard_limit,
+                        int external_allocation_soft_limit);
+
   // Returns the max semi-space size in MB.
   V8_DEPRECATE_SOON("Use max_semi_space_size_in_kb()",
                     size_t max_semi_space_size()) {
@@ -6343,6 +6348,28 @@ class V8_EXPORT ResourceConstraints {
   }
   size_t max_zone_pool_size() const { return max_zone_pool_size_; }
   void set_max_zone_pool_size(size_t bytes) { max_zone_pool_size_ = bytes; }
+  void set_min_allocation_limit_growing_step_size(const size_t limit_in_mb) {
+    min_allocation_limit_growing_step_size_ = limit_in_mb;
+  }
+  size_t min_allocation_limit_growing_step_size() const {
+    return min_allocation_limit_growing_step_size_;
+  }
+  void set_high_fragmentation_slack(const size_t limit_in_mb) {
+    high_fragmentation_slack_ = limit_in_mb;
+  }
+  size_t high_fragmentation_slack() const { return high_fragmentation_slack_; }
+  void set_external_allocation_hard_limit(const int limit_in_mb) {
+    external_allocation_hard_limit_ = limit_in_mb;
+  }
+  int external_allocation_hard_limit() const {
+    return external_allocation_hard_limit_;
+  }
+  void set_external_allocation_soft_limit(const int limit_in_mb) {
+    external_allocation_soft_limit_ = limit_in_mb;
+  }
+  int external_allocation_soft_limit() const {
+    return external_allocation_soft_limit_;
+  }
 
  private:
   // max_semi_space_size_ is in KB
@@ -6354,6 +6381,10 @@ class V8_EXPORT ResourceConstraints {
   uint32_t* stack_limit_;
   size_t code_range_size_;
   size_t max_zone_pool_size_;
+  size_t min_allocation_limit_growing_step_size_;
+  size_t high_fragmentation_slack_;
+  int external_allocation_hard_limit_;
+  int external_allocation_soft_limit_;
 };
 
 
