@@ -507,6 +507,37 @@ class ArrayBufferAllocator : public v8::ArrayBuffer::Allocator {
   void Free(void* data, size_t) override { free(data); }
 };
 
+#if defined(USE_WEBOS_V8_SNAPSHOT)
+const char* ToCString(const v8::String::Utf8Value& value) {
+  return *value ? *value : "<string conversion failed>";
+}
+
+void ReportException(TryCatch* try_catch) {
+  if (!try_catch->HasCaught()) return;
+
+  String::Utf8Value exception_value(try_catch->Exception());
+  const char* exception = ToCString(exception_value);
+  Local<Message> message = try_catch->Message();
+  if (message.IsEmpty()) {
+    i::PrintF("%s\n", exception);
+  } else {
+    // Print (filename):(line_number): (message)
+    String::Utf8Value filename_value(message->GetScriptResourceName());
+    i::PrintF("%s:%i: %s\n", ToCString(filename_value),
+              message->GetLineNumber(), exception);
+    // Print line of source
+    String::Utf8Value sourceline_value(message->GetSourceLine());
+    i::PrintF("%s\n", ToCString(sourceline_value));
+    // Print wavy underline
+    int start = message->GetStartColumn();
+    for (int i = 0; i < start; i++) i::PrintF(" ");
+    int end = message->GetEndColumn();
+    for (int i = start; i < end; i++) i::PrintF("^");
+  }
+  i::PrintF("\n");
+}
+#endif
+
 bool RunExtraCode(Isolate* isolate, Local<Context> context,
                   const char* utf8_source, const char* name) {
   base::ElapsedTimer timer;
@@ -524,8 +555,19 @@ bool RunExtraCode(Isolate* isolate, Local<Context> context,
   ScriptOrigin origin(resource_name);
   ScriptCompiler::Source source(source_string, origin);
   Local<Script> script;
+#if defined(USE_WEBOS_V8_SNAPSHOT)
+  if (!ScriptCompiler::Compile(context, &source).ToLocal(&script)) {
+    ReportException(&try_catch);
+    return false;
+  }
+  if (script->Run(context).IsEmpty()) {
+    ReportException(&try_catch);
+    return false;
+  }
+#else
   if (!ScriptCompiler::Compile(context, &source).ToLocal(&script)) return false;
   if (script->Run(context).IsEmpty()) return false;
+#endif
   if (i::FLAG_profile_deserialization) {
     i::PrintF("Executing custom snapshot script %s took %0.3f ms\n", name,
               timer.Elapsed().InMillisecondsF());

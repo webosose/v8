@@ -22,14 +22,22 @@ class StartupSerializer;
 // Wrapper around reservation sizes and the serialization payload.
 class SnapshotData : public SerializedData {
  public:
+#if defined(USE_WEBOS_V8_SNAPSHOT)
+  enum CompressionType{None, Snappy};
+#endif
+
   // Used when producing.
   template <class AllocatorT>
   explicit SnapshotData(const Serializer<AllocatorT>* serializer);
 
   // Used when consuming.
+#if defined(USE_WEBOS_V8_SNAPSHOT)
+  explicit SnapshotData(const Vector<const byte> snapshot);
+#else
   explicit SnapshotData(const Vector<const byte> snapshot)
       : SerializedData(const_cast<byte*>(snapshot.begin()), snapshot.length()) {
   }
+#endif
 
   std::vector<Reservation> Reservations() const;
   virtual Vector<const byte> Payload() const;
@@ -39,16 +47,36 @@ class SnapshotData : public SerializedData {
   }
 
  protected:
+#if defined(USE_WEBOS_V8_SNAPSHOT)
+  bool IsSane();
+
+  size_t Compress(const byte* data, const int length, byte* compressed);
+  void Decompress(const byte* compressed, const int length, byte* data);
+#endif
+
   // The data header consists of uint32_t-sized entries:
   // [0] magic number and (internal) external reference count
   // [1] number of reservation size entries
   // [2] payload length
+  // [3] compression type
+  // [4] data length
+  // [5] payload length
   // ... reservations
   // ... serialized payload
   static const uint32_t kNumReservationsOffset =
       kMagicNumberOffset + kUInt32Size;
+#if defined(USE_WEBOS_V8_SNAPSHOT)
+  static const uint32_t kCheckSumOffset = kMagicNumberOffset + kUInt32Size;
+  static const uint32_t kCompressionTypeOffset =
+      kNumReservationsOffset + kUInt32Size;
+  static const uint32_t kCompressedLengthOffset =
+      kCompressionTypeOffset + kUInt32Size;
+  static const uint32_t kPayloadLengthOffset =
+      kCompressedLengthOffset + kUInt32Size;
+#else
   static const uint32_t kPayloadLengthOffset =
       kNumReservationsOffset + kUInt32Size;
+#endif
   static const uint32_t kHeaderSize = kPayloadLengthOffset + kUInt32Size;
 };
 

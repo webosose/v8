@@ -1084,6 +1084,10 @@ DEFINE_STRING(startup_src, nullptr,
               "Write V8 startup as C++ src. (mksnapshot only)")
 DEFINE_STRING(startup_blob, nullptr,
               "Write V8 startup blob file. (mksnapshot only)")
+#if defined(USE_WEBOS_V8_SNAPSHOT)
+DEFINE_BOOL(compress_startup_blob, false,
+            "Compress the startup blob file. (mksnapshot only)")
+#endif
 
 //
 // Minor mark compact collector flags.

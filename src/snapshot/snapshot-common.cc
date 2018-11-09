@@ -19,6 +19,12 @@
 #include "src/utils.h"
 #include "src/version.h"
 
+#if defined(USE_WEBOS_V8_SNAPSHOT)
+#undef DISALLOW_COPY_AND_ASSIGN
+#include <snappy.h>
+#include <memory>
+#endif
+
 namespace v8 {
 namespace internal {
 
@@ -510,6 +516,42 @@ Vector<const byte> Snapshot::ExtractContextData(const v8::StartupData* data,
   return Vector<const byte>(context_data, context_length);
 }
 
+#if defined(USE_WEBOS_V8_SNAPSHOT)
+size_t SnapshotData::Compress(const byte* data, const int length,
+                              byte* compressed) {
+  base::ElapsedTimer timer;
+  if (FLAG_profile_deserialization) timer.Start();
+
+  size_t compressed_length;
+  const char* source = reinterpret_cast<const char*>(data);
+  char* dest = reinterpret_cast<char*>(compressed);
+  // TODO: Add switch by CompressionType when we add more algorithms.
+  snappy::RawCompress(source, length, dest, &compressed_length);
+
+  if (FLAG_profile_deserialization) {
+    double ms = timer.Elapsed().InMillisecondsF();
+    PrintF("[Compress data (%d bytes) took %0.3f ms]\n", length, ms);
+  }
+  return compressed_length;
+}
+
+void SnapshotData::Decompress(const byte* compressed, const int length,
+                              byte* data) {
+  base::ElapsedTimer timer;
+  if (FLAG_profile_deserialization) timer.Start();
+
+  const char* source = reinterpret_cast<const char*>(compressed);
+  char* dest = reinterpret_cast<char*>(data);
+  // TODO: Add switch by CompressionType when we add more algorithms.
+  snappy::RawUncompress(source, length, dest);
+
+  if (FLAG_profile_deserialization) {
+    double ms = timer.Elapsed().InMillisecondsF();
+    PrintF("[Decompress data (%d bytes) took %0.3f ms]\n", length, ms);
+  }
+}
+#endif
+
 void Snapshot::CheckVersion(const v8::StartupData* data) {
   char version[kVersionStringLength];
   memset(version, 0, kVersionStringLength);
@@ -554,9 +596,52 @@ SnapshotData::SnapshotData(const Serializer<AllocatorT>* serializer) {
             reservation_size);
 
   // Copy serialized data.
+#if defined(USE_WEBOS_V8_SNAPSHOT)
+  if (FLAG_compress_startup_blob) {
+    size_t compressed_size = Compress(payload->data(), payload->size(),
+                                      data_ + kHeaderSize + reservation_size);
+    SetHeaderValue(kCompressionTypeOffset, Snappy);
+    SetHeaderValue(kCompressedLengthOffset, compressed_size);
+    // change size_ of SerializedData for RawData
+    size_ = kHeaderSize + reservation_size + compressed_size;
+  } else {
+    CopyBytes(data_ + kHeaderSize + reservation_size, payload->data(),
+              static_cast<size_t>(payload->size()));
+    SetHeaderValue(kCompressionTypeOffset, None);
+    SetHeaderValue(kCompressedLengthOffset,
+                   static_cast<uint32_t>(payload->size()));
+  }
+#else
   CopyBytes(data_ + kHeaderSize + reservation_size, payload->data(),
             static_cast<size_t>(payload->size()));
+#endif
 }
+
+#if defined(USE_WEBOS_V8_SNAPSHOT)
+SnapshotData::SnapshotData(const Vector<const byte> snapshot)
+    : SerializedData(const_cast<byte*>(snapshot.begin()), snapshot.length()) {
+  CompressionType compression_type =
+      static_cast<CompressionType>(GetHeaderValue(kCompressionTypeOffset));
+  if (compression_type != None) {
+    const byte* compressed_data = data_;
+    int compressed_size = GetHeaderValue(kCompressedLengthOffset);
+    int reservation_size = GetHeaderValue(kNumReservationsOffset) * kInt32Size;
+    int payload_size = GetHeaderValue(kPayloadLengthOffset);
+    int payload_offset = kHeaderSize + reservation_size;
+    // Allocate new data to decompress.
+    AllocateData(payload_offset + payload_size);
+    // Copy header and reservation chunks.
+    CopyBytes(data_, compressed_data, payload_offset);
+    Decompress(compressed_data + payload_offset, compressed_size,
+               data_ + payload_offset);
+  }
+  CHECK(IsSane());
+}
+
+bool SnapshotData::IsSane() {
+  return GetHeaderValue(kCheckSumOffset) == Version::Hash();
+}
+#endif
 
 // Explicit instantiation.
 template SnapshotData::SnapshotData(

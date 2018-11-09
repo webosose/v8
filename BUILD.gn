@@ -2780,6 +2780,10 @@ v8_source_set("v8_base") {
     sources += [ "$target_gen_dir/debug-support.cc" ]
     deps += [ ":postmortem-metadata" ]
   }
+
+  if (use_webos_v8_snapshot) {
+    deps += [ "//third_party/snappy:snappy" ]
+  }
 }
 
 v8_component("v8_libbase") {
