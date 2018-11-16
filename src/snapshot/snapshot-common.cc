@@ -517,7 +517,7 @@ Vector<const byte> Snapshot::ExtractContextData(const v8::StartupData* data,
 }
 
 #if defined(USE_WEBOS_V8_SNAPSHOT)
-size_t SnapshotData::Compress(const byte* data, const int length,
+size_t SnapshotData::Compress(const byte* data, const uint32_t length,
                               byte* compressed) {
   base::ElapsedTimer timer;
   if (FLAG_profile_deserialization) timer.Start();
@@ -535,7 +535,7 @@ size_t SnapshotData::Compress(const byte* data, const int length,
   return compressed_length;
 }
 
-void SnapshotData::Decompress(const byte* compressed, const int length,
+void SnapshotData::Decompress(const byte* compressed, const uint32_t length,
                               byte* data) {
   base::ElapsedTimer timer;
   if (FLAG_profile_deserialization) timer.Start();
@@ -624,10 +624,10 @@ SnapshotData::SnapshotData(const Vector<const byte> snapshot)
       static_cast<CompressionType>(GetHeaderValue(kCompressionTypeOffset));
   if (compression_type != None) {
     const byte* compressed_data = data_;
-    int compressed_size = GetHeaderValue(kCompressedLengthOffset);
-    int reservation_size = GetHeaderValue(kNumReservationsOffset) * kInt32Size;
-    int payload_size = GetHeaderValue(kPayloadLengthOffset);
-    int payload_offset = kHeaderSize + reservation_size;
+    uint32_t compressed_size = GetHeaderValue(kCompressedLengthOffset);
+    uint32_t reservation_size = GetHeaderValue(kNumReservationsOffset) * kInt32Size;
+    uint32_t payload_size = GetHeaderValue(kPayloadLengthOffset);
+    uint32_t payload_offset = kHeaderSize + reservation_size;
     // Allocate new data to decompress.
     AllocateData(payload_offset + payload_size);
     // Copy header and reservation chunks.
@@ -635,11 +635,6 @@ SnapshotData::SnapshotData(const Vector<const byte> snapshot)
     Decompress(compressed_data + payload_offset, compressed_size,
                data_ + payload_offset);
   }
-  CHECK(IsSane());
-}
-
-bool SnapshotData::IsSane() {
-  return GetHeaderValue(kCheckSumOffset) == Version::Hash();
 }
 #endif
 

@@ -48,10 +48,8 @@ class SnapshotData : public SerializedData {
 
  protected:
 #if defined(USE_WEBOS_V8_SNAPSHOT)
-  bool IsSane();
-
-  size_t Compress(const byte* data, const int length, byte* compressed);
-  void Decompress(const byte* compressed, const int length, byte* data);
+  size_t Compress(const byte* data, const uint32_t length, byte* compressed);
+  void Decompress(const byte* compressed, const uint32_t length, byte* data);
 #endif
 
   // The data header consists of uint32_t-sized entries:
@@ -66,7 +64,6 @@ class SnapshotData : public SerializedData {
   static const uint32_t kNumReservationsOffset =
       kMagicNumberOffset + kUInt32Size;
 #if defined(USE_WEBOS_V8_SNAPSHOT)
-  static const uint32_t kCheckSumOffset = kMagicNumberOffset + kUInt32Size;
   static const uint32_t kCompressionTypeOffset =
       kNumReservationsOffset + kUInt32Size;
   static const uint32_t kCompressedLengthOffset =
