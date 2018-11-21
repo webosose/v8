@@ -2787,6 +2787,46 @@ Local<Script> Script::Compile(v8::Local<String> source,
 }
 
 
+bool Script::CompileExtension(Isolate* isolate, v8::Local<String> source,
+                              v8::Extension* extension) {
+  auto i_isolate = reinterpret_cast<i::Isolate*>(isolate);
+  auto factory = i_isolate->factory();
+  i::HandleScope scope(i_isolate);
+
+  auto str = Utils::OpenHandle(*(source));
+  DCHECK(str->IsOneByteRepresentation());
+
+  auto name = i::CStrVector(extension->name());
+  auto script_name = factory->NewStringFromUtf8(name).ToHandleChecked();
+  i::MaybeHandle<i::SharedFunctionInfo> maybe_function_info =
+      i::Compiler::GetSharedFunctionInfoForScript(
+          str, i::Compiler::ScriptDetails(script_name), ScriptOriginOptions(),
+          extension, nullptr, ScriptCompiler::kNoCompileOptions,
+          ScriptCompiler::kNoCacheBecauseV8Extension, i::EXTENSION_CODE);
+
+  i::Handle<i::SharedFunctionInfo> function_info;
+  if (!maybe_function_info.ToHandle(&function_info)) return false;
+
+  auto cache = i_isolate->bootstrapper()->extensions_cache();
+  i::Handle<i::Context> context(i_isolate->context());
+  DCHECK(context->IsNativeContext());
+
+  cache->Add(name, function_info);
+
+  // Set up the function context. Conceptually, we should clone the
+  // function before overwriting the context but since we're in a
+  // single-threaded environment it is not strictly necessary.
+  auto fun = factory->NewFunctionFromSharedFunctionInfo(function_info, context);
+
+  // Call function using either the runtime object or the global
+  // object as the receiver. Provide no parameters.
+  i::Handle<i::Object> receiver = i_isolate->global_object();
+  return
+      !i::Execution::TryCall(i_isolate, fun, receiver, 0, nullptr,
+          i::Execution::MessageHandling::kKeepPending, nullptr).is_null();
+}
+
+
 // --- E x c e p t i o n s ---
 
 v8::TryCatch::TryCatch(v8::Isolate* isolate)

@@ -74,6 +74,7 @@ class Context;
 class CpuProfiler;
 class Data;
 class Date;
+class Extension;
 class External;
 class Function;
 class FunctionTemplate;
@@ -1347,6 +1348,9 @@ class V8_EXPORT Script {
   static Local<Script> V8_DEPRECATED("Use maybe version",
                                      Compile(Local<String> source,
                                              Local<String> file_name));
+
+  static bool CompileExtension(Isolate* isolate, Local<String> source,
+                               Extension* extension);
 
   /**
    * Runs the script returning the resulting value. It will be run in the
@@ -6236,6 +6240,7 @@ class V8_EXPORT Extension {  // NOLINT
       Isolate* isolate, Local<String> name) {
     return Local<FunctionTemplate>();
   }
+  virtual void InstallPendingFeaturesForExtensions() {}
 
   const char* name() const { return name_; }
   size_t source_length() const { return source_length_; }
