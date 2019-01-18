@@ -1352,6 +1352,10 @@ class V8_EXPORT Script {
   static bool CompileExtension(Isolate* isolate, Local<String> source,
                                Extension* extension);
 
+  static bool CompileExtraInjections(Isolate* isolate,
+                                     Local<String> source,
+                                     const char* injection_name);
+
   /**
    * Runs the script returning the resulting value. It will be run in the
    * context in which it was created (ScriptCompiler::CompileBound or
