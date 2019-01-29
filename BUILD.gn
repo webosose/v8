@@ -3082,7 +3082,7 @@ if (v8_use_snapshot && current_toolchain == v8_snapshot_toolchain) {
       "//build/win:default_exe_manifest",
     ]
     if (use_lttng && current_toolchain == default_toolchain) {
-      deps += [ "//base/trace_event/neva:lttng", ]
+      deps += [ "//base/trace_event/neva:chromium_lttng", ]
     }
   }
 }
