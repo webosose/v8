@@ -348,6 +348,9 @@ config("features") {
   if (v8_use_multi_snapshots) {
     defines += [ "V8_MULTI_SNAPSHOTS" ]
   }
+  if (v8_disable_icu_timezone_data) {
+    defines += [ "V8_DISABLE_ICU_TIMEZONE_DATA" ]
+  }
 }
 
 config("toolchain") {
