@@ -177,7 +177,11 @@ class DateCache {
   // In Egypt in 2010 they decided to suspend DST during Ramadan. This
   // led to a short interval where DST is in effect from September 10 to
   // September 30.
+#if defined(V8_USE_SHORT_DST_DELTA)
+  static const int kDefaultDSTDeltaInSec = 59 * 60;
+#else
   static const int kDefaultDSTDeltaInSec = 19 * kSecPerDay;
+#endif  // defined(V8_USE_SHORT_DST_DELTA)
 
   // Size of the Daylight Savings Time cache.
   static const int kDSTSize = 32;

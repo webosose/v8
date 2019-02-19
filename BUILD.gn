@@ -351,6 +351,9 @@ config("features") {
   if (v8_disable_icu_timezone_data) {
     defines += [ "V8_DISABLE_ICU_TIMEZONE_DATA" ]
   }
+  if (v8_use_short_dst_delta) {
+    defines += [ "V8_USE_SHORT_DST_DELTA" ]
+  }
 }
 
 config("toolchain") {
