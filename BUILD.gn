@@ -2476,6 +2476,9 @@ v8_source_set("v8_base") {
       "src/objects.cc",
       "src/parsing/parser.cc",
     ]
+    if (use_webos_v8_snapshot) {
+      jumbo_excluded_sources += [ "src/snapshot/snapshot-common.cc" ]
+    }
   }
 
   if (v8_current_cpu == "x86") {
